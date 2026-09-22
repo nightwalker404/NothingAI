@@ -1,0 +1,51 @@
+services:
+  vllm:
+    image: vllm/vllm-openai:v0.6.3
+    container_name: vllm-service
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+      - /dev/shm:/dev/shm
+    ports:
+      - "8000:8000"
+    ipc: host
+    env_file:
+      - .env
+    command: >
+      --model ${VLLM_MODEL}
+      --gpu-memory-utilization ${VLLM_GPU_MEMORY_UTILIZATION}
+      --max-model-len ${VLLM_MAX_MODEL_LEN}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/v1/models"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - vllm-net
+
+  searxng:
+    image: searxng/searxng:latest
+    container_name: searxng-service
+    ports:
+      - "8888:8080"
+    volumes:
+      - searxng_data:/etc/searxng
+    environment:
+      - BASE_URL=http://localhost:8888/
+      - INSTANCE_NAME=MCP_SearchTool
+    networks:
+      - vllm-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  searxng_data:
+
+networks:
+  vllm-net:
+    driver: bridge
